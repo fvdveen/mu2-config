@@ -155,6 +155,16 @@ func searchChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
 	}
 }
 
+func encodeChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
+	if conf.Services.Encode.Location != last.Services.Encode.Location {
+		ch <- &Event{
+			EventType: Change,
+			Key:       "services.encode.location",
+			Change:    conf.Services.Encode.Location,
+		}
+	}
+}
+
 func changes(new []string, old []string) (additions []string, removals []string) {
 	oldComs := map[string]bool{}
 	for _, com := range old {

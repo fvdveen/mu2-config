@@ -174,6 +174,46 @@ func SearchService(ch <-chan *Event) (<-chan *Event, <-chan *Event) {
 	return ss, rest
 }
 
+// EncodeService takes a chan of events and splits it into a chan of encode service events and all other events
+func EncodeService(ch <-chan *Event) (<-chan *Event, <-chan *Event) {
+	es := make(chan *Event)
+	rest := make(chan *Event)
+	go func(ch <-chan *Event, es, rest chan<- *Event) {
+		for evnt := range ch {
+			d := strings.Split(evnt.Key, ".")
+			if len(d) < 2 {
+				go func(rest chan<- *Event, evnt *Event) {
+					rest <- evnt
+				}(rest, evnt)
+				continue
+			}
+
+			if d[0] != "services" {
+				go func(rest chan<- *Event, evnt *Event) {
+					rest <- evnt
+				}(rest, evnt)
+				continue
+			}
+
+			switch d[1] {
+			case "encode":
+				go func(es chan<- *Event, evnt *Event) {
+					es <- evnt
+				}(es, evnt)
+			default:
+				go func(rest chan<- *Event, evnt *Event) {
+					rest <- evnt
+				}(rest, evnt)
+			}
+		}
+
+		close(es)
+		close(rest)
+	}(ch, es, rest)
+
+	return es, rest
+}
+
 // Null clears the channel given to it
 // It is required because if it is not used goroutines will leak
 func Null(ch <-chan *Event) {
