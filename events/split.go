@@ -175,7 +175,7 @@ func SearchService(ch <-chan *Event) (<-chan *Event, <-chan *Event) {
 }
 
 // Null clears the channel given to it
-// It is required because if it is not used the provider will deadlock
+// It is required because if it is not used goroutines will leak
 func Null(ch <-chan *Event) {
 	go func(ch <-chan *Event) {
 		for evnt := range ch {

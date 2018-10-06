@@ -56,6 +56,9 @@ func Watch(in <-chan *config.Config) <-chan *Event {
 			if !reflect.DeepEqual(conf.Youtube, last.Youtube) {
 				ytChanges(ch, conf, last)
 			}
+			if !reflect.DeepEqual(conf.Services, last.Services) {
+				serviceChanges(ch, conf, last)
+			}
 
 			last = conf
 		}
