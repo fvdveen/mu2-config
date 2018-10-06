@@ -113,13 +113,13 @@ func botChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
 	if !reflect.DeepEqual(conf.Bot.Commands, last.Bot.Commands) {
 		a, r := changes(conf.Bot.Commands, last.Bot.Commands)
 		if len(a) == 0 && len(r) == 0 {
-		} else if len(a) == 0 {
+		} else if len(r) == 0 {
 			ch <- &Event{
 				EventType: Add,
 				Key:       "bot.commands",
 				Additions: a,
 			}
-		} else if len(r) == 0 {
+		} else if len(a) == 0 {
 			ch <- &Event{
 				EventType: Remove,
 				Key:       "bot.commands",
