@@ -9,7 +9,8 @@ type Config struct {
 	Bot      Bot      `mapstructure:"bot" json:"bot"`
 	Log      Log      `mapstructure:"log" json:"log"`
 	Database Database `mapstructure:"database" json:"database"`
-	Youtube  Youtube  `mapstructure:"youtube"`
+	Youtube  Youtube  `mapstructure:"youtube" json:"youtube"`
+	Services Services `mapstructure:"services" json:"services"`
 }
 
 // Bot holds all config values for the bot
@@ -45,7 +46,17 @@ type Database struct {
 
 // Youtube holds all config values for youtube
 type Youtube struct {
-	APIKey string `mapstructure:"api-key"`
+	APIKey string `mapstructure:"api-key" json:"api-key"`
+}
+
+// Services holds all config values for the services
+type Services struct {
+	Search Search `mapstructure:"location" json:"location"`
+}
+
+// Search holds all config values for the search service
+type Search struct {
+	Location string `mapstructure:"location" json:"location"`
 }
 
 // Watcher represents a stream of configs

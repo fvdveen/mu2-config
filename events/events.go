@@ -2,7 +2,6 @@ package events
 
 import (
 	"reflect"
-	"strings"
 
 	"github.com/fvdveen/mu2-config"
 )
@@ -137,6 +136,22 @@ func botChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
 	}
 }
 
+func serviceChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
+	if !reflect.DeepEqual(conf.Services.Search, last.Services.Search) {
+		searchChanges(ch, conf, last)
+	}
+}
+
+func searchChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
+	if conf.Services.Search.Location != last.Services.Search.Location {
+		ch <- &Event{
+			EventType: Change,
+			Key:       "services.search.location",
+			Change:    conf.Services.Search.Location,
+		}
+	}
+}
+
 func changes(new []string, old []string) (additions []string, removals []string) {
 	oldComs := map[string]bool{}
 	for _, com := range old {
@@ -176,102 +191,4 @@ func changes(new []string, old []string) (additions []string, removals []string)
 	}
 
 	return additions, removals
-}
-
-// Bot takes a chan of events and splits it into a chan of bot events and all other events
-func Bot(ch <-chan *Event) (<-chan *Event, <-chan *Event) {
-	bot := make(chan *Event)
-	rest := make(chan *Event)
-	go func(ch <-chan *Event, bot, rest chan<- *Event) {
-		for evnt := range ch {
-			d := strings.Split(evnt.Key, ".")[0]
-			switch d {
-			case "bot":
-				bot <- evnt
-			default:
-				rest <- evnt
-			}
-		}
-
-		close(bot)
-		close(rest)
-	}(ch, bot, rest)
-
-	return bot, rest
-}
-
-// Log takes a chan of events and splits it into a chan of log events and all other events
-func Log(ch <-chan *Event) (<-chan *Event, <-chan *Event) {
-	log := make(chan *Event)
-	rest := make(chan *Event)
-	go func(ch <-chan *Event, log, rest chan<- *Event) {
-		for evnt := range ch {
-			d := strings.Split(evnt.Key, ".")[0]
-			switch d {
-			case "log":
-				log <- evnt
-			default:
-				rest <- evnt
-			}
-		}
-
-		close(log)
-		close(rest)
-	}(ch, log, rest)
-
-	return log, rest
-}
-
-// Database takes a chan of events and splits it into a chan of database events and all other events
-func Database(ch <-chan *Event) (<-chan *Event, <-chan *Event) {
-	db := make(chan *Event)
-	rest := make(chan *Event)
-	go func(ch <-chan *Event, db, rest chan<- *Event) {
-		for evnt := range ch {
-			d := strings.Split(evnt.Key, ".")[0]
-			switch d {
-			case "database":
-				db <- evnt
-			default:
-				rest <- evnt
-			}
-		}
-
-		close(db)
-		close(rest)
-	}(ch, db, rest)
-
-	return db, rest
-}
-
-// Youtube takes a chan of events and splits it into a chan of youtube events and all other events
-func Youtube(ch <-chan *Event) (<-chan *Event, <-chan *Event) {
-	yt := make(chan *Event)
-	rest := make(chan *Event)
-	go func(ch <-chan *Event, yt, rest chan<- *Event) {
-		for evnt := range ch {
-			d := strings.Split(evnt.Key, ".")[0]
-			switch d {
-			case "youtube":
-				yt <- evnt
-			default:
-				rest <- evnt
-			}
-		}
-
-		close(yt)
-		close(rest)
-	}(ch, yt, rest)
-
-	return yt, rest
-}
-
-// Null clears the channel given to it
-// It is required because if it is not used the provider will deadlock
-func Null(ch <-chan *Event) {
-	go func(ch <-chan *Event) {
-		for evnt := range ch {
-			_ = evnt
-		}
-	}(ch)
 }
