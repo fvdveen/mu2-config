@@ -51,7 +51,7 @@ type Youtube struct {
 
 // Services holds all config values for the services
 type Services struct {
-	Search Search `mapstructure:"location" json:"location"`
+	Search Search `mapstructure:"search" json:"search"`
 }
 
 // Search holds all config values for the search service
