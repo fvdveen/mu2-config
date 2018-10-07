@@ -143,6 +143,9 @@ func serviceChanges(ch chan<- *Event, conf *config.Config, last *config.Config) 
 	if !reflect.DeepEqual(conf.Services.Search, last.Services.Search) {
 		searchChanges(ch, conf, last)
 	}
+	if !reflect.DeepEqual(conf.Services.Encode, last.Services.Encode) {
+		encodeChanges(ch, conf, last)
+	}
 }
 
 func searchChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
