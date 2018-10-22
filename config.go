@@ -42,6 +42,7 @@ type Database struct {
 	Password string `mapstructure:"password" json:"password"`
 	SSL      string `mapstructure:"ssl" json:"ssl"`
 	Type     string `mapstructure:"type" json:"type"`
+	Port     string `mapstructure:"port" json:"port"`
 }
 
 // Youtube holds all config values for youtube
