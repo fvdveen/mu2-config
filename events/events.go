@@ -46,12 +46,14 @@ func Watch(in <-chan *config.Config) <-chan *Event {
 				logChanges(ch, conf, last)
 			}
 			if !reflect.DeepEqual(conf.Database, last.Database) {
-				ch <- &Event{
-					EventType: Change,
-					Key:       "database",
-					Change:    conf.Database.Type,
-					Database:  conf.Database,
-				}
+				go func(ch chan<- *Event, conf *config.Config) {
+					ch <- &Event{
+						EventType: Change,
+						Key:       "database",
+						Change:    conf.Database.Type,
+						Database:  conf.Database,
+					}
+				}(ch, conf)
 			}
 			if !reflect.DeepEqual(conf.Youtube, last.Youtube) {
 				ytChanges(ch, conf, last)
@@ -71,70 +73,86 @@ func Watch(in <-chan *config.Config) <-chan *Event {
 
 func logChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
 	if conf.Log.Level != last.Log.Level {
-		ch <- &Event{
-			EventType: Change,
-			Key:       "log.level",
-			Change:    conf.Log.Level,
-		}
+		go func(ch chan<- *Event, conf *config.Config) {
+			ch <- &Event{
+				EventType: Change,
+				Key:       "log.level",
+				Change:    conf.Log.Level,
+			}
+		}(ch, conf)
 	}
 	if !reflect.DeepEqual(conf.Log.Discord, last.Log.Discord) {
-		ch <- &Event{
-			EventType: Change,
-			Key:       "log.discord",
-			Change:    "hook",
-			Log:       conf.Log,
-		}
+		go func(ch chan<- *Event, conf *config.Config) {
+			ch <- &Event{
+				EventType: Change,
+				Key:       "log.discord",
+				Change:    "hook",
+				Log:       conf.Log,
+			}
+		}(ch, conf)
 	}
 }
 
 func ytChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
 	if conf.Youtube.APIKey != last.Youtube.APIKey {
-		ch <- &Event{
-			EventType: Change,
-			Key:       "youtube.apikey",
-			Change:    conf.Youtube.APIKey,
-		}
+		go func(ch chan<- *Event, conf *config.Config) {
+			ch <- &Event{
+				EventType: Change,
+				Key:       "youtube.apikey",
+				Change:    conf.Youtube.APIKey,
+			}
+		}(ch, conf)
 	}
 }
 
 func botChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
 	if conf.Bot.Discord.Token != last.Bot.Discord.Token {
-		ch <- &Event{
-			EventType: Change,
-			Key:       "bot.discord.token",
-			Change:    conf.Bot.Discord.Token,
-		}
+		go func(ch chan<- *Event, conf *config.Config) {
+			ch <- &Event{
+				EventType: Change,
+				Key:       "bot.discord.token",
+				Change:    conf.Bot.Discord.Token,
+			}
+		}(ch, conf)
 	}
 	if conf.Bot.Prefix != last.Bot.Prefix {
-		ch <- &Event{
-			EventType: Change,
-			Key:       "bot.prefix",
-			Change:    conf.Bot.Prefix,
-		}
+		go func(ch chan<- *Event, conf *config.Config) {
+			ch <- &Event{
+				EventType: Change,
+				Key:       "bot.prefix",
+				Change:    conf.Bot.Prefix,
+			}
+		}(ch, conf)
 	}
 
 	if !reflect.DeepEqual(conf.Bot.Commands, last.Bot.Commands) {
 		a, r := changes(conf.Bot.Commands, last.Bot.Commands)
 		if len(a) == 0 && len(r) == 0 {
 		} else if len(r) == 0 {
-			ch <- &Event{
-				EventType: Add,
-				Key:       "bot.commands",
-				Additions: a,
-			}
+			go func(ch chan<- *Event, a []string) {
+				ch <- &Event{
+					EventType: Add,
+					Key:       "bot.commands",
+					Additions: a,
+				}
+			}(ch, a)
 		} else if len(a) == 0 {
-			ch <- &Event{
-				EventType: Remove,
-				Key:       "bot.commands",
-				Removals:  r,
-			}
+			go func(ch chan<- *Event, r []string) {
+				ch <- &Event{
+					EventType: Remove,
+					Key:       "bot.commands",
+					Removals:  r,
+				}
+			}(ch, r)
 		} else {
-			ch <- &Event{
-				EventType: Change,
-				Key:       "bot.commands",
-				Additions: a,
-				Removals:  r,
-			}
+			go func(ch chan<- *Event, a []string, r []string) {
+				ch <- &Event{
+					EventType: Change,
+					Key:       "bot.commands",
+					Additions: a,
+					Removals:  r,
+				}
+			}(ch, a, r)
 		}
 	}
 }
@@ -150,21 +168,25 @@ func serviceChanges(ch chan<- *Event, conf *config.Config, last *config.Config) 
 
 func searchChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
 	if conf.Services.Search.Location != last.Services.Search.Location {
-		ch <- &Event{
-			EventType: Change,
-			Key:       "services.search.location",
-			Change:    conf.Services.Search.Location,
-		}
+		go func(ch chan<- *Event, conf *config.Config) {
+			ch <- &Event{
+				EventType: Change,
+				Key:       "services.search.location",
+				Change:    conf.Services.Search.Location,
+			}
+		}(ch, conf)
 	}
 }
 
 func encodeChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
 	if conf.Services.Encode.Location != last.Services.Encode.Location {
-		ch <- &Event{
-			EventType: Change,
-			Key:       "services.encode.location",
-			Change:    conf.Services.Encode.Location,
-		}
+		go func(ch chan<- *Event, conf *config.Config) {
+			ch <- &Event{
+				EventType: Change,
+				Key:       "services.encode.location",
+				Change:    conf.Services.Encode.Location,
+			}
+		}(ch, conf)
 	}
 }
 

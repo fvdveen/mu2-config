@@ -61,9 +61,12 @@ func NewProvider(c *api.Client, key string, t string, qopts *api.QueryOptions) (
 				if err != nil {
 					logrus.WithFields(map[string]interface{}{"type": "provider", "provider": "consul"}).Errorf("Get config %s: %v", p.key, err)
 					continue
+				} else if kv == nil {
+					logrus.WithFields(map[string]interface{}{"type": "provider", "provider": "consul"}).Warnf("Key %s does not exist", p.key)
+					continue
 				}
 
-				if kv == nil || string(kv.Value) == last {
+				if string(kv.Value) == last {
 					continue
 				}
 
