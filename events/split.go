@@ -4,214 +4,35 @@ import (
 	"strings"
 )
 
-// Bot takes a chan of events and splits it into a chan of bot events and all other events
-func Bot(ch <-chan *Event) (<-chan *Event, <-chan *Event) {
-	bot := make(chan *Event)
+// Seperator is the token on which event keys are seperated
+const Seperator = "."
+
+// Split takes a chan of events and splits it based on the keys provided
+// it returns a chan of the event belonging to the keys events and all other events
+func Split(ch <-chan *Event, keys ...string) (<-chan *Event, <-chan *Event) {
+	split := make(chan *Event)
 	rest := make(chan *Event)
-	go func(ch <-chan *Event, bot, rest chan<- *Event) {
+	go func(ch <-chan *Event, split, rest chan<- *Event, keys ...string) {
+	splitLoop:
 		for evnt := range ch {
-			d := strings.Split(evnt.Key, ".")[0]
-			switch d {
-			case "bot":
-				go func(bot chan<- *Event, evnt *Event) {
-					bot <- evnt
-				}(bot, evnt)
-			default:
-				go func(rest chan<- *Event, evnt *Event) {
+			parts := strings.Split(evnt.Key, Seperator)
+			for i := range keys {
+				if i >= len(parts) {
 					rest <- evnt
-				}(rest, evnt)
+					continue splitLoop
+				} else if keys[i] != parts[i] {
+					rest <- evnt
+					continue splitLoop
+				}
 			}
+			split <- evnt
 		}
 
-		close(bot)
+		close(split)
 		close(rest)
-	}(ch, bot, rest)
+	}(ch, split, rest, keys...)
 
-	return bot, rest
-}
-
-// Log takes a chan of events and splits it into a chan of log events and all other events
-func Log(ch <-chan *Event) (<-chan *Event, <-chan *Event) {
-	log := make(chan *Event)
-	rest := make(chan *Event)
-	go func(ch <-chan *Event, log, rest chan<- *Event) {
-		for evnt := range ch {
-			d := strings.Split(evnt.Key, ".")[0]
-			switch d {
-			case "log":
-				go func(log chan<- *Event, evnt *Event) {
-					log <- evnt
-				}(log, evnt)
-			default:
-				go func(rest chan<- *Event, evnt *Event) {
-					rest <- evnt
-				}(rest, evnt)
-			}
-		}
-
-		close(log)
-		close(rest)
-	}(ch, log, rest)
-
-	return log, rest
-}
-
-// Database takes a chan of events and splits it into a chan of database events and all other events
-func Database(ch <-chan *Event) (<-chan *Event, <-chan *Event) {
-	db := make(chan *Event)
-	rest := make(chan *Event)
-	go func(ch <-chan *Event, db, rest chan<- *Event) {
-		for evnt := range ch {
-			d := strings.Split(evnt.Key, ".")[0]
-			switch d {
-			case "database":
-				go func(db chan<- *Event, evnt *Event) {
-					db <- evnt
-				}(db, evnt)
-			default:
-				go func(rest chan<- *Event, evnt *Event) {
-					rest <- evnt
-				}(rest, evnt)
-			}
-		}
-
-		close(db)
-		close(rest)
-	}(ch, db, rest)
-
-	return db, rest
-}
-
-// Youtube takes a chan of events and splits it into a chan of youtube events and all other events
-func Youtube(ch <-chan *Event) (<-chan *Event, <-chan *Event) {
-	yt := make(chan *Event)
-	rest := make(chan *Event)
-	go func(ch <-chan *Event, yt, rest chan<- *Event) {
-		for evnt := range ch {
-			d := strings.Split(evnt.Key, ".")[0]
-			switch d {
-			case "youtube":
-				go func(yt chan<- *Event, evnt *Event) {
-					yt <- evnt
-				}(yt, evnt)
-			default:
-				go func(rest chan<- *Event, evnt *Event) {
-					rest <- evnt
-				}(rest, evnt)
-			}
-		}
-
-		close(yt)
-		close(rest)
-	}(ch, yt, rest)
-
-	return yt, rest
-}
-
-// Services takes a chan of events and splits it into a chan of service events and all other events
-func Services(ch <-chan *Event) (<-chan *Event, <-chan *Event) {
-	s := make(chan *Event)
-	rest := make(chan *Event)
-	go func(ch <-chan *Event, s, rest chan<- *Event) {
-		for evnt := range ch {
-			d := strings.Split(evnt.Key, ".")[0]
-			switch d {
-			case "services":
-				go func(s chan<- *Event, evnt *Event) {
-					s <- evnt
-				}(s, evnt)
-			default:
-				go func(rest chan<- *Event, evnt *Event) {
-					rest <- evnt
-				}(rest, evnt)
-			}
-		}
-
-		close(s)
-		close(rest)
-	}(ch, s, rest)
-
-	return s, rest
-}
-
-// SearchService takes a chan of events and splits it into a chan of search service events and all other events
-func SearchService(ch <-chan *Event) (<-chan *Event, <-chan *Event) {
-	ss := make(chan *Event)
-	rest := make(chan *Event)
-	go func(ch <-chan *Event, ss, rest chan<- *Event) {
-		for evnt := range ch {
-			d := strings.Split(evnt.Key, ".")
-			if len(d) < 2 {
-				go func(rest chan<- *Event, evnt *Event) {
-					rest <- evnt
-				}(rest, evnt)
-				continue
-			}
-
-			if d[0] != "services" {
-				go func(rest chan<- *Event, evnt *Event) {
-					rest <- evnt
-				}(rest, evnt)
-				continue
-			}
-
-			switch d[1] {
-			case "search":
-				go func(ss chan<- *Event, evnt *Event) {
-					ss <- evnt
-				}(ss, evnt)
-			default:
-				go func(rest chan<- *Event, evnt *Event) {
-					rest <- evnt
-				}(rest, evnt)
-			}
-		}
-
-		close(ss)
-		close(rest)
-	}(ch, ss, rest)
-
-	return ss, rest
-}
-
-// EncodeService takes a chan of events and splits it into a chan of encode service events and all other events
-func EncodeService(ch <-chan *Event) (<-chan *Event, <-chan *Event) {
-	es := make(chan *Event)
-	rest := make(chan *Event)
-	go func(ch <-chan *Event, es, rest chan<- *Event) {
-		for evnt := range ch {
-			d := strings.Split(evnt.Key, ".")
-			if len(d) < 2 {
-				go func(rest chan<- *Event, evnt *Event) {
-					rest <- evnt
-				}(rest, evnt)
-				continue
-			}
-
-			if d[0] != "services" {
-				go func(rest chan<- *Event, evnt *Event) {
-					rest <- evnt
-				}(rest, evnt)
-				continue
-			}
-
-			switch d[1] {
-			case "encode":
-				go func(es chan<- *Event, evnt *Event) {
-					es <- evnt
-				}(es, evnt)
-			default:
-				go func(rest chan<- *Event, evnt *Event) {
-					rest <- evnt
-				}(rest, evnt)
-			}
-		}
-
-		close(es)
-		close(rest)
-	}(ch, es, rest)
-
-	return es, rest
+	return split, rest
 }
 
 // Null clears the channel given to it

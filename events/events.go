@@ -2,6 +2,7 @@ package events
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/fvdveen/mu2-config"
 )
@@ -13,6 +14,10 @@ const (
 	Add
 	// Remove is the EventType for a removal
 	Remove
+	// Slice is the EventType for a slice or array event
+	Slice
+	// Map is the EventType for a map event
+	Map
 )
 
 // EventType is the type of change that happened in a event
@@ -20,16 +25,29 @@ type EventType uint8
 
 // Event represents a change in the config
 type Event struct {
-	// EventType shows what happened
-	EventType EventType
+	// Type shows what happened
+	Type EventType
 	// The config key that got changes e.g. discord.token
 	Key string
 
-	Change    string
-	Additions []string
-	Removals  []string
-	Database  config.Database
-	Log       config.Log
+	Change interface{}
+	Slice  SliceEvent
+	Map    MapEvent
+}
+
+// SliceEvent represents a change in a slice
+type SliceEvent struct {
+	Type      EventType
+	Additions []interface{}
+	Removals  []interface{}
+}
+
+// MapEvent represents a change in a map
+type MapEvent struct {
+	Type      EventType
+	Additions map[interface{}]interface{}
+	Changes   map[interface{}]interface{}
+	Removals  map[interface{}]interface{}
 }
 
 // Watch puts all changes between the configs given by in into Events
@@ -39,29 +57,7 @@ func Watch(in <-chan *config.Config) <-chan *Event {
 	go func(in <-chan *config.Config, ch chan<- *Event) {
 		last := &config.Config{}
 		for conf := range in {
-			if !reflect.DeepEqual(conf.Bot, last.Bot) {
-				botChanges(ch, conf, last)
-			}
-			if !reflect.DeepEqual(conf.Log, last.Log) {
-				logChanges(ch, conf, last)
-			}
-			if !reflect.DeepEqual(conf.Database, last.Database) {
-				go func(ch chan<- *Event, conf *config.Config) {
-					ch <- &Event{
-						EventType: Change,
-						Key:       "database",
-						Change:    conf.Database.Type,
-						Database:  conf.Database,
-					}
-				}(ch, conf)
-			}
-			if !reflect.DeepEqual(conf.Youtube, last.Youtube) {
-				ytChanges(ch, conf, last)
-			}
-			if !reflect.DeepEqual(conf.Services, last.Services) {
-				serviceChanges(ch, conf, last)
-			}
-
+			changes(reflect.ValueOf(last), reflect.ValueOf(conf), ch)
 			last = conf
 		}
 
@@ -71,162 +67,284 @@ func Watch(in <-chan *config.Config) <-chan *Event {
 	return ch
 }
 
-func logChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
-	if conf.Log.Level != last.Log.Level {
-		go func(ch chan<- *Event, conf *config.Config) {
-			ch <- &Event{
-				EventType: Change,
-				Key:       "log.level",
-				Change:    conf.Log.Level,
-			}
-		}(ch, conf)
+func changes(a, b reflect.Value, ch chan<- *Event, keys ...string) {
+	if reflect.DeepEqual(a.Interface(), b.Interface()) {
+		return
 	}
-	if !reflect.DeepEqual(conf.Log.Discord, last.Log.Discord) {
-		go func(ch chan<- *Event, conf *config.Config) {
-			ch <- &Event{
-				EventType: Change,
-				Key:       "log.discord",
-				Change:    "hook",
-				Log:       conf.Log,
-			}
-		}(ch, conf)
+
+	if !isValid(a, b) {
+		return
+	}
+
+	switch a.Type().Kind() {
+	case reflect.Struct:
+		structChanges(a, b, ch, keys...)
+	case reflect.Ptr:
+		changes(a.Elem(), b.Elem(), ch, keys...)
+	case reflect.Slice, reflect.Array:
+		sliceChanges(a, b, ch, keys...)
+	case reflect.Map:
+		mapChanges(a, b, ch, keys...)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Bool, reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128, reflect.String:
+		var e *Event
+
+		e = &Event{
+			Type:   Change,
+			Key:    strings.Join(keys, Seperator),
+			Change: b.Interface(),
+		}
+
+		ch <- e
 	}
 }
 
-func ytChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
-	if conf.Youtube.APIKey != last.Youtube.APIKey {
-		go func(ch chan<- *Event, conf *config.Config) {
-			ch <- &Event{
-				EventType: Change,
-				Key:       "youtube.apikey",
-				Change:    conf.Youtube.APIKey,
-			}
-		}(ch, conf)
+func structChanges(a, b reflect.Value, ch chan<- *Event, keys ...string) {
+	if reflect.DeepEqual(a.Interface(), b.Interface()) {
+		return
+	}
+
+	if !a.IsValid() || !b.IsValid() {
+		return
+	}
+
+	if a.Type().Kind() != reflect.Struct {
+		return
+	}
+
+	if a.Type() != b.Type() {
+		return
+	}
+
+	for i := 0; i < a.NumField(); i++ {
+		changes(a.Field(i), b.Field(i), ch, append(keys, strings.ToLower(a.Type().Field(i).Name))...)
 	}
 }
 
-func botChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
-	if conf.Bot.Discord.Token != last.Bot.Discord.Token {
-		go func(ch chan<- *Event, conf *config.Config) {
-			ch <- &Event{
-				EventType: Change,
-				Key:       "bot.discord.token",
-				Change:    conf.Bot.Discord.Token,
-			}
-		}(ch, conf)
-	}
-	if conf.Bot.Prefix != last.Bot.Prefix {
-		go func(ch chan<- *Event, conf *config.Config) {
-			ch <- &Event{
-				EventType: Change,
-				Key:       "bot.prefix",
-				Change:    conf.Bot.Prefix,
-			}
-		}(ch, conf)
+func sliceChanges(a, b reflect.Value, ch chan<- *Event, keys ...string) {
+	if reflect.DeepEqual(a.Interface(), b.Interface()) {
+		return
 	}
 
-	if !reflect.DeepEqual(conf.Bot.Commands, last.Bot.Commands) {
-		a, r := changes(conf.Bot.Commands, last.Bot.Commands)
-		if len(a) == 0 && len(r) == 0 {
-		} else if len(r) == 0 {
-			go func(ch chan<- *Event, a []string) {
-				ch <- &Event{
-					EventType: Add,
-					Key:       "bot.commands",
-					Additions: a,
-				}
-			}(ch, a)
-		} else if len(a) == 0 {
-			go func(ch chan<- *Event, r []string) {
-				ch <- &Event{
-					EventType: Remove,
-					Key:       "bot.commands",
-					Removals:  r,
-				}
-			}(ch, r)
-		} else {
-			go func(ch chan<- *Event, a []string, r []string) {
-				ch <- &Event{
-					EventType: Change,
-					Key:       "bot.commands",
-					Additions: a,
-					Removals:  r,
-				}
-			}(ch, a, r)
+	if !a.IsValid() || !b.IsValid() {
+		return
+	}
+
+	if a.Type().Kind() != reflect.Slice && a.Type().Kind() != reflect.Array {
+		return
+	}
+
+	if a.Type() != b.Type() {
+		return
+	}
+
+	if a.Type().Kind() == reflect.Slice {
+		if a.IsNil() || b.IsNil() {
+			return
+		}
+	}
+
+	aVals := make(map[interface{}]bool)
+	bVals := make(map[interface{}]bool)
+
+	for i := 0; i < a.Len(); i++ {
+		aVals[a.Index(i).Interface()] = true
+	}
+
+	for i := 0; i < b.Len(); i++ {
+		bVals[b.Index(i).Interface()] = true
+	}
+
+	adds, rems := sliceAddsRems(aVals, bVals)
+	if len(adds) != 0 && len(rems) != 0 {
+		ch <- &Event{
+			Type: Slice,
+			Key:  strings.Join(keys, Seperator),
+			Slice: SliceEvent{
+				Type:      Change,
+				Additions: adds,
+				Removals:  rems,
+			},
+		}
+	} else if len(adds) != 0 {
+		ch <- &Event{
+			Type: Slice,
+			Key:  strings.Join(keys, Seperator),
+			Slice: SliceEvent{
+				Type:      Add,
+				Additions: adds,
+			},
+		}
+	} else if len(rems) != 0 {
+		ch <- &Event{
+			Type: Slice,
+			Key:  strings.Join(keys, Seperator),
+			Slice: SliceEvent{
+				Type:     Remove,
+				Removals: rems,
+			},
 		}
 	}
 }
 
-func serviceChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
-	if !reflect.DeepEqual(conf.Services.Search, last.Services.Search) {
-		searchChanges(ch, conf, last)
+func mapChanges(a, b reflect.Value, ch chan<- *Event, keys ...string) {
+	if reflect.DeepEqual(a.Interface(), b.Interface()) {
+		return
 	}
-	if !reflect.DeepEqual(conf.Services.Encode, last.Services.Encode) {
-		encodeChanges(ch, conf, last)
+
+	if !a.IsValid() || !b.IsValid() {
+		return
+	}
+
+	if a.Type().Kind() != reflect.Map {
+		return
+	}
+
+	if a.Type() != b.Type() {
+		return
+	}
+
+	if a.IsNil() || b.IsNil() {
+		return
+	}
+
+	aVals := make(map[interface{}]interface{})
+	bVals := make(map[interface{}]interface{})
+
+	for _, x := range a.MapKeys() {
+		y := a.MapIndex(x)
+		if !x.IsValid() || !y.IsValid() {
+			continue
+		}
+		aVals[x.Interface()] = y.Interface()
+	}
+
+	for _, x := range b.MapKeys() {
+		y := b.MapIndex(x)
+		if !x.IsValid() || !y.IsValid() {
+			continue
+		}
+		bVals[x.Interface()] = y.Interface()
+	}
+
+	add, change, rem := mapAddChangeRems(aVals, bVals)
+	if len(change) != 0 || len(add) != 0 && len(rem) != 0 {
+		ch <- &Event{
+			Type: Map,
+			Key:  strings.Join(keys, Seperator),
+			Map: MapEvent{
+				Type:      Change,
+				Additions: add,
+				Changes:   change,
+				Removals:  rem,
+			},
+		}
+	} else if len(add) != 0 {
+		ch <- &Event{
+			Type: Map,
+			Key:  strings.Join(keys, Seperator),
+			Map: MapEvent{
+				Type:      Add,
+				Additions: add,
+			},
+		}
+	} else if len(rem) != 0 {
+		ch <- &Event{
+			Type: Map,
+			Key:  strings.Join(keys, Seperator),
+			Map: MapEvent{
+				Type:     Remove,
+				Removals: rem,
+			},
+		}
 	}
 }
 
-func searchChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
-	if conf.Services.Search.Location != last.Services.Search.Location {
-		go func(ch chan<- *Event, conf *config.Config) {
-			ch <- &Event{
-				EventType: Change,
-				Key:       "services.search.location",
-				Change:    conf.Services.Search.Location,
-			}
-		}(ch, conf)
-	}
-}
+func sliceAddsRems(a, b map[interface{}]bool) ([]interface{}, []interface{}) {
+	removals := []interface{}{}
+	additions := []interface{}{}
 
-func encodeChanges(ch chan<- *Event, conf *config.Config, last *config.Config) {
-	if conf.Services.Encode.Location != last.Services.Encode.Location {
-		go func(ch chan<- *Event, conf *config.Config) {
-			ch <- &Event{
-				EventType: Change,
-				Key:       "services.encode.location",
-				Change:    conf.Services.Encode.Location,
-			}
-		}(ch, conf)
-	}
-}
-
-func changes(new []string, old []string) (additions []string, removals []string) {
-	oldComs := map[string]bool{}
-	for _, com := range old {
-		oldComs[com] = true
-	}
-	newComs := map[string]bool{}
-	for _, com := range new {
-		newComs[com] = true
-	}
-
-	for x := range oldComs {
+	for x := range a {
 		found := false
-		for y := range newComs {
+		for y := range b {
 			if x == y {
 				found = true
 				break
 			}
 		}
-		if found {
-			continue
+
+		if !found {
+			removals = append(removals, x)
 		}
-		removals = append(removals, x)
 	}
 
-	for x := range newComs {
-		double := false
-		for y := range oldComs {
+	for x := range b {
+		found := false
+		for y := range a {
 			if x == y {
-				double = true
+				found = true
 				break
 			}
 		}
-		if double {
-			continue
+
+		if !found {
+			additions = append(additions, x)
 		}
-		additions = append(additions, x)
 	}
 
 	return additions, removals
+}
+
+func mapAddChangeRems(a, b map[interface{}]interface{}) (
+	map[interface{}]interface{},
+	map[interface{}]interface{},
+	map[interface{}]interface{},
+) {
+	add := make(map[interface{}]interface{})
+	change := make(map[interface{}]interface{})
+	rem := make(map[interface{}]interface{})
+
+	for k, v := range a {
+		x, ok := b[k]
+		if !ok {
+			rem[k] = v
+			continue
+		}
+
+		if reflect.DeepEqual(x, v) {
+			continue
+		}
+
+		change[k] = x
+	}
+
+	for k, v := range b {
+		if _, ok := a[k]; ok {
+			continue
+		}
+
+		add[k] = v
+	}
+
+	return add, change, rem
+}
+
+func isValid(a, b reflect.Value) bool {
+	if !a.IsValid() || !b.IsValid() {
+		return false
+	}
+
+	if a.Type() != b.Type() {
+		return false
+	}
+
+	switch a.Type().Kind() {
+	case reflect.Func, reflect.Chan, reflect.Interface, reflect.Ptr, reflect.Slice, reflect.Map:
+		if a.IsNil() || b.IsNil() {
+			return false
+		}
+	}
+
+	return true
 }

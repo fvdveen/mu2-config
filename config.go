@@ -4,13 +4,27 @@ import (
 	"io"
 )
 
+func New() *Config {
+	return &Config{
+		Bot: Bot{
+			Commands: []string{},
+		},
+		Log: Log{
+			Hooks: make(map[string]LogHook),
+		},
+		Database: Database{},
+		Youtube:  Youtube{},
+		Services: make(map[string]Service),
+	}
+}
+
 // Config holds all config values
 type Config struct {
-	Bot      Bot      `mapstructure:"bot" json:"bot"`
-	Log      Log      `mapstructure:"log" json:"log"`
-	Database Database `mapstructure:"database" json:"database"`
-	Youtube  Youtube  `mapstructure:"youtube" json:"youtube"`
-	Services Services `mapstructure:"services" json:"services"`
+	Bot      Bot                `mapstructure:"bot" json:"bot"`
+	Log      Log                `mapstructure:"log" json:"log"`
+	Database Database           `mapstructure:"database" json:"database"`
+	Youtube  Youtube            `mapstructure:"youtube" json:"youtube"`
+	Services map[string]Service `mapstructure:"services" json:"services"`
 }
 
 // Bot holds all config values for the bot
@@ -27,12 +41,16 @@ type Discord struct {
 
 // Log holds all config values for the logger
 type Log struct {
-	Discord struct {
-		Level   string `mapstructure:"level" json:"level"`
-		WebHook string `mapstructure:"webhook" json:"webhook"`
-	} `mapstructure:"discord" json:"discord"`
+	Hooks map[string]LogHook `mapstructure:"hooks" json:"hooks"`
 
 	Level string `mapstructure:"level" json:"level"`
+}
+
+// LogHook represents a hook for the logger
+type LogHook struct {
+	Level    string `mapstructure:"level" json:"level"`
+	URL      string `mapstructure:"url" json:"url"`
+	Location string `mapstructure:"location" json:"location"`
 }
 
 // Database holds all config values for the database
@@ -50,19 +68,8 @@ type Youtube struct {
 	APIKey string `mapstructure:"api-key" json:"api-key"`
 }
 
-// Services holds all config values for the services
-type Services struct {
-	Search Search `mapstructure:"search" json:"search"`
-	Encode Encode `mapstructure:"encode" json:"encode"`
-}
-
-// Search holds all config values for the search service
-type Search struct {
-	Location string `mapstructure:"location" json:"location"`
-}
-
-// Encode holds all config values for the encode service
-type Encode struct {
+// Service holds all config values for a service
+type Service struct {
 	Location string `mapstructure:"location" json:"location"`
 }
 
