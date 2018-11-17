@@ -26,7 +26,7 @@ type provider struct {
 }
 
 // NewProvider creates a new provider with a consul backend
-func NewProvider(c *api.Client, key string, t string, qopts *api.QueryOptions, l *zap.SugaredLogger) (config.Provider, error) {
+func NewProvider(c *api.Client, key string, t string, qopts *api.QueryOptions, l func () *zap.SugaredLogger) (config.Provider, error) {
 	p := &provider{
 		client:        c,
 		key:           key,
@@ -39,7 +39,7 @@ func NewProvider(c *api.Client, key string, t string, qopts *api.QueryOptions, l
 	}
 
 	go func(p *provider) {
-		l.Named("provider").Named("consul").Debugf("Starting...")
+		l().Named("provider").Named("consul").Debugf("Starting...")
 		var last string
 		t := time.Tick(time.Second * 5)
 
@@ -51,7 +51,7 @@ func NewProvider(c *api.Client, key string, t string, qopts *api.QueryOptions, l
 		for {
 			select {
 			case <-p.quitWatchChan:
-				l.Named("provider").Named("consul").Debugf("Stopping...")
+				l().Named("provider").Named("consul").Debugf("Stopping...")
 				close(p.ch)
 
 				close(p.errChan)
@@ -59,10 +59,10 @@ func NewProvider(c *api.Client, key string, t string, qopts *api.QueryOptions, l
 			case <-t:
 				kv, _, err := p.client.KV().Get(p.key, p.qOpts)
 				if err != nil {
-					l.Named("provider").Named("consul").Errorf("Get config %s: %v", p.key, err)
+					l().Named("provider").Named("consul").Errorf("Get config %s: %v", p.key, err)
 					continue
 				} else if kv == nil {
-					l.Named("provider").Named("consul").Warnf("Key %s does not exist", p.key)
+					l().Named("provider").Named("consul").Warnf("Key %s does not exist", p.key)
 					continue
 				}
 
@@ -73,14 +73,14 @@ func NewProvider(c *api.Client, key string, t string, qopts *api.QueryOptions, l
 				last = string(kv.Value)
 
 				if err := v.ReadConfig(bytes.NewBuffer(kv.Value)); err != nil {
-					l.Named("provider").Named("consul").Errorf("Read in config: %v", err)
+					l().Named("provider").Named("consul").Errorf("Read in config: %v", err)
 					continue
 				}
 
 				c = config.New()
 
 				if err := v.Unmarshal(c); err != nil {
-					l.Named("provider").Named("consul").Errorf("Unmarshal into config: %v", err)
+					l().Named("provider").Named("consul").Errorf("Unmarshal into config: %v", err)
 					continue
 				}
 
