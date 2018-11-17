@@ -77,7 +77,7 @@ func NewProvider(c *api.Client, key string, t string, qopts *api.QueryOptions) (
 					continue
 				}
 
-				c = &config.Config{}
+				c = config.New()
 
 				if err := v.Unmarshal(c); err != nil {
 					logrus.WithFields(map[string]interface{}{"type": "provider", "provider": "consul"}).Errorf("Unmarshal into config: %v", err)

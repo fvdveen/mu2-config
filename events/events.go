@@ -145,6 +145,10 @@ func sliceChanges(a, b reflect.Value, ch chan<- *Event, keys ...string) {
 		}
 	}
 
+	if !a.CanInterface() || !b.CanInterface() {
+		return
+	}
+
 	aVals := make(map[interface{}]bool)
 	bVals := make(map[interface{}]bool)
 
@@ -206,6 +210,10 @@ func mapChanges(a, b reflect.Value, ch chan<- *Event, keys ...string) {
 	}
 
 	if a.IsNil() || b.IsNil() {
+		return
+	}
+
+	if !a.CanInterface() || !b.CanInterface() {
 		return
 	}
 
@@ -344,6 +352,10 @@ func isValid(a, b reflect.Value) bool {
 		if a.IsNil() || b.IsNil() {
 			return false
 		}
+	}
+
+	if !a.CanInterface() || !b.CanInterface() {
+		return false
 	}
 
 	return true
