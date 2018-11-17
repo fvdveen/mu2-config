@@ -7,8 +7,8 @@ import (
 
 	"github.com/fvdveen/mu2-config"
 	"github.com/hashicorp/consul/api"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 type provider struct {
@@ -26,7 +26,7 @@ type provider struct {
 }
 
 // NewProvider creates a new provider with a consul backend
-func NewProvider(c *api.Client, key string, t string, qopts *api.QueryOptions) (config.Provider, error) {
+func NewProvider(c *api.Client, key string, t string, qopts *api.QueryOptions, l *zap.SugaredLogger) (config.Provider, error) {
 	p := &provider{
 		client:        c,
 		key:           key,
@@ -39,7 +39,7 @@ func NewProvider(c *api.Client, key string, t string, qopts *api.QueryOptions) (
 	}
 
 	go func(p *provider) {
-		logrus.WithFields(map[string]interface{}{"type": "provider", "provider": "consul"}).Debugf("Starting...")
+		l.Named("provider").Named("consul").Debugf("Starting...")
 		var last string
 		t := time.Tick(time.Second * 5)
 
@@ -51,7 +51,7 @@ func NewProvider(c *api.Client, key string, t string, qopts *api.QueryOptions) (
 		for {
 			select {
 			case <-p.quitWatchChan:
-				logrus.WithFields(map[string]interface{}{"type": "provider", "provider": "consul"}).Debugf("Stopping...")
+				l.Named("provider").Named("consul").Debugf("Stopping...")
 				close(p.ch)
 
 				close(p.errChan)
@@ -59,10 +59,10 @@ func NewProvider(c *api.Client, key string, t string, qopts *api.QueryOptions) (
 			case <-t:
 				kv, _, err := p.client.KV().Get(p.key, p.qOpts)
 				if err != nil {
-					logrus.WithFields(map[string]interface{}{"type": "provider", "provider": "consul"}).Errorf("Get config %s: %v", p.key, err)
+					l.Named("provider").Named("consul").Errorf("Get config %s: %v", p.key, err)
 					continue
 				} else if kv == nil {
-					logrus.WithFields(map[string]interface{}{"type": "provider", "provider": "consul"}).Warnf("Key %s does not exist", p.key)
+					l.Named("provider").Named("consul").Warnf("Key %s does not exist", p.key)
 					continue
 				}
 
@@ -73,14 +73,14 @@ func NewProvider(c *api.Client, key string, t string, qopts *api.QueryOptions) (
 				last = string(kv.Value)
 
 				if err := v.ReadConfig(bytes.NewBuffer(kv.Value)); err != nil {
-					logrus.WithFields(map[string]interface{}{"type": "provider", "provider": "consul"}).Errorf("Read in config: %v", err)
+					l.Named("provider").Named("consul").Errorf("Read in config: %v", err)
 					continue
 				}
 
 				c = config.New()
 
 				if err := v.Unmarshal(c); err != nil {
-					logrus.WithFields(map[string]interface{}{"type": "provider", "provider": "consul"}).Errorf("Unmarshal into config: %v", err)
+					l.Named("provider").Named("consul").Errorf("Unmarshal into config: %v", err)
 					continue
 				}
 

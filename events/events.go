@@ -88,15 +88,11 @@ func changes(a, b reflect.Value, ch chan<- *Event, keys ...string) {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 		reflect.Bool, reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128, reflect.String:
-		var e *Event
-
-		e = &Event{
+		ch <- &Event{
 			Type:   Change,
 			Key:    strings.Join(keys, Seperator),
 			Change: b.Interface(),
 		}
-
-		ch <- e
 	}
 }
 
@@ -118,6 +114,16 @@ func structChanges(a, b reflect.Value, ch chan<- *Event, keys ...string) {
 	}
 
 	for i := 0; i < a.NumField(); i++ {
+		if a.Type().Field(i).Tag.Get("watch") == "nosub" {
+			if !reflect.DeepEqual(a.Interface(), b.Interface()) {
+				ch <- &Event{
+					Type:   Change,
+					Key:    strings.Join(keys, Seperator),
+					Change: b.Interface(),
+				}
+			}
+			continue
+		}
 		changes(a.Field(i), b.Field(i), ch, append(keys, strings.ToLower(a.Type().Field(i).Name))...)
 	}
 }

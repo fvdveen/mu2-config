@@ -22,7 +22,7 @@ func New() *Config {
 type Config struct {
 	Bot      Bot                `mapstructure:"bot" json:"bot"`
 	Log      Log                `mapstructure:"log" json:"log"`
-	Database Database           `mapstructure:"database" json:"database"`
+	Database Database           `mapstructure:"database" json:"database" watch:"nosub"`
 	Youtube  Youtube            `mapstructure:"youtube" json:"youtube"`
 	Services map[string]Service `mapstructure:"services" json:"services"`
 }
