@@ -26,7 +26,7 @@ type provider struct {
 }
 
 // NewProvider creates a new provider with a consul backend
-func NewProvider(c *api.Client, key string, t string, qopts *api.QueryOptions, l func () *zap.SugaredLogger) (config.Provider, error) {
+func NewProvider(c *api.Client, key string, t string, qopts *api.QueryOptions, l func() *zap.SugaredLogger) (config.Provider, error) {
 	p := &provider{
 		client:        c,
 		key:           key,
