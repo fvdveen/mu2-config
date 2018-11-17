@@ -10,7 +10,7 @@ func New() *Config {
 			Commands: []string{},
 		},
 		Log: Log{
-			Hooks: make(map[string]LogHook),
+			Hooks: []LogHook{},
 		},
 		Database: Database{},
 		Youtube:  Youtube{},
@@ -41,13 +41,14 @@ type Discord struct {
 
 // Log holds all config values for the logger
 type Log struct {
-	Hooks map[string]LogHook `mapstructure:"hooks" json:"hooks"`
+	Hooks []LogHook `mapstructure:"hooks" json:"hooks"`
 
 	Level string `mapstructure:"level" json:"level"`
 }
 
 // LogHook represents a hook for the logger
 type LogHook struct {
+	Type     string `mapstructure:"type" json:"type"`
 	Level    string `mapstructure:"level" json:"level"`
 	URL      string `mapstructure:"url" json:"url"`
 	Location string `mapstructure:"location" json:"location"`
